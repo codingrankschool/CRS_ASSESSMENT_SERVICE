@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class CodeJudgeService {
 
-    @Value("${assessment.judge.execution-timeout-ms:5000}")
+    @Value("${assessment.judge.execution-timeout-ms:2000}")
     private long executionTimeoutMs;
 
     @Value("${assessment.judge.allow-unsandboxed:false}")
@@ -31,6 +31,13 @@ public class CodeJudgeService {
 
     @Value("${assessment.judge.docker-enabled:false}")
     private boolean dockerEnabled;
+
+    private final ExecutorService testCaseExecutor = Executors.newFixedThreadPool(8);
+
+    @jakarta.annotation.PreDestroy
+    public void shutdown() {
+        testCaseExecutor.shutdown();
+    }
 
     /**
      * Executes user code against a suite of test cases.
@@ -92,13 +99,27 @@ public class CodeJudgeService {
             long maxRuntime = 0;
             SubmissionStatus overallStatus = SubmissionStatus.PASSED;
 
+            List<CompletableFuture<ExecutionResultDto.TestCaseResult>> futures = new ArrayList<>(testCases.size());
+            final Path finalWorkDir = workDir;
             for (TestCase tc : testCases) {
-                long start = System.currentTimeMillis();
-                ExecutionResultDto.TestCaseResult tcResult = runSingleTestCase(workDir, language, tc);
-                long elapsed = System.currentTimeMillis() - start;
-                maxRuntime = Math.max(maxRuntime, elapsed);
+                futures.add(CompletableFuture.supplyAsync(() -> runSingleTestCase(finalWorkDir, language, tc), testCaseExecutor));
+            }
+
+            for (CompletableFuture<ExecutionResultDto.TestCaseResult> future : futures) {
+                ExecutionResultDto.TestCaseResult tcResult;
+                try {
+                    tcResult = future.join();
+                } catch (Exception e) {
+                    tcResult = ExecutionResultDto.TestCaseResult.builder()
+                            .actualOutput("Execution Exception: " + e.getMessage())
+                            .passed(false)
+                            .runtimeMs(0L)
+                            .build();
+                }
 
                 results.add(tcResult);
+                maxRuntime = Math.max(maxRuntime, tcResult.getRuntimeMs());
+
                 if (tcResult.isPassed()) {
                     passedCount++;
                 } else {
@@ -106,9 +127,9 @@ public class CodeJudgeService {
                         overallStatus = SubmissionStatus.FAILED;
                     }
                     if (results.size() <= 3) {
-                        log.info("Test case #{} failed: input='{}' expected='{}' actual='{}'",
-                                results.size(), tc.isHidden() ? "<hidden>" : tc.getInput(),
-                                tc.getExpectedOutput(), tcResult.getActualOutput());
+                        log.info("Test case failed: input='{}' expected='{}' actual='{}'",
+                                tcResult.isHidden() ? "<hidden>" : tcResult.getInput(),
+                                tcResult.getExpectedOutput(), tcResult.getActualOutput());
                     }
                 }
             }
@@ -147,6 +168,7 @@ public class CodeJudgeService {
     private ExecutionResultDto.TestCaseResult runSingleTestCase(Path workDir, String language, TestCase tc) {
         String runCommand = getRunCommand(language);
         Process process = null;
+        long start = System.currentTimeMillis();
         try {
             process = new ProcessBuilder(runCommand.split(" "))
                     .directory(workDir.toFile())
@@ -161,6 +183,7 @@ public class CodeJudgeService {
             }
 
             boolean completed = process.waitFor(executionTimeoutMs, TimeUnit.MILLISECONDS);
+            long elapsed = System.currentTimeMillis() - start;
             if (!completed) {
                 process.destroyForcibly();
                 return ExecutionResultDto.TestCaseResult.builder()
@@ -169,6 +192,7 @@ public class CodeJudgeService {
                         .actualOutput("Time Limit Exceeded (" + executionTimeoutMs + "ms)")
                         .passed(false)
                         .hidden(tc.isHidden())
+                        .runtimeMs(elapsed)
                         .build();
             }
 
@@ -182,9 +206,11 @@ public class CodeJudgeService {
                     .actualOutput(tc.isHidden() ? "<hidden>" : actualOutput)
                     .passed(passed)
                     .hidden(tc.isHidden())
+                    .runtimeMs(elapsed)
                     .build();
 
         } catch (Exception e) {
+            long elapsed = System.currentTimeMillis() - start;
             if (process != null) process.destroyForcibly();
             return ExecutionResultDto.TestCaseResult.builder()
                     .input(tc.isHidden() ? "<hidden>" : tc.getInput())
@@ -192,6 +218,7 @@ public class CodeJudgeService {
                     .actualOutput("Runtime Error: " + e.getMessage())
                     .passed(false)
                     .hidden(tc.isHidden())
+                    .runtimeMs(elapsed)
                     .build();
         }
     }

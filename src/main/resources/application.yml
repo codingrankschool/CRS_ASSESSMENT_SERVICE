@@ -42,6 +42,6 @@ assessment:
   judge:
     docker-enabled: ${DOCKER_ENABLED:true}
     allow-unsandboxed: ${ALLOW_UNSANDBOXED_EXECUTION:false}
-    execution-timeout-ms: 5000
+    execution-timeout-ms: 2000
     max-memory-mb: 128
 

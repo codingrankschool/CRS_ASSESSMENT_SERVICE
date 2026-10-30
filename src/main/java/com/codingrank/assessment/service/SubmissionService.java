@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -109,12 +110,15 @@ public class SubmissionService {
         log.info("Saved code submission to MongoDB Atlas: submissionId='{}' status={} score={}/{}",
                 saved.getId(), saved.getStatus(), saved.getScore(), question.getPoints());
 
-        // Update real-time contest leaderboard
-        try {
-            leaderboardService.recalculateLeaderboard(request.getAssessmentId());
-        } catch (Exception e) {
-            log.debug("No live contest leaderboard active for itemId='{}'", request.getAssessmentId());
-        }
+        // Update real-time contest leaderboard asynchronously
+        final String assessmentId = request.getAssessmentId();
+        CompletableFuture.runAsync(() -> {
+            try {
+                leaderboardService.recalculateLeaderboard(assessmentId);
+            } catch (Exception e) {
+                log.debug("No live contest leaderboard active for itemId='{}': {}", assessmentId, e.getMessage());
+            }
+        });
 
         // Notify LMS of assessment score
         lmsIntegrationService.notifyLmsAssessmentCompleted(
@@ -225,12 +229,15 @@ public class SubmissionService {
         log.info("Saved quiz submission to MongoDB Atlas: submissionId='{}' status={} score={}/{}",
                 saved.getId(), saved.getStatus(), saved.getScore(), maxScore);
 
-        // Update contest leaderboard if this is a live contest
-        try {
-            leaderboardService.recalculateLeaderboard(effectiveId);
-        } catch (Exception e) {
-            log.debug("Leaderboard recalculation skipped: {}", e.getMessage());
-        }
+        // Update contest leaderboard asynchronously if this is a live contest
+        final String contestItemId = effectiveId;
+        CompletableFuture.runAsync(() -> {
+            try {
+                leaderboardService.recalculateLeaderboard(contestItemId);
+            } catch (Exception e) {
+                log.debug("Leaderboard recalculation skipped: {}", e.getMessage());
+            }
+        });
 
         lmsIntegrationService.notifyLmsAssessmentCompleted(
                 userId,
