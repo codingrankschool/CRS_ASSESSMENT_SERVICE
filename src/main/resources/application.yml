@@ -1,0 +1,47 @@
+server:
+  port: ${PORT:8085}
+
+spring:
+  application:
+    name: crs-assessment-service
+  threads:
+    virtual:
+      enabled: true
+
+  data:
+    mongodb:
+      uri: ${DATABASE_URL:mongodb+srv://anandsinghyadav_codingrank:Anand%40codingrankschool@codingrank.stidlhy.mongodb.net/codingrankschool?appName=codingrank}
+      auto-index-creation: false
+    redis:
+      repositories:
+        enabled: false
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+logging:
+  config: classpath:logback-spring.xml
+  file:
+    name: logs/assessment-service.log
+  level:
+    root: INFO
+    com.codingrank.assessment: INFO
+    org.springframework.web: INFO
+    org.springframework.data.mongodb: INFO
+
+# LMS Integration & Auth Configuration
+lms:
+  integration:
+    jwt-secret: ${JWT_SECRET:supersecretkey}
+    webhook-url: ${LMS_WEBHOOK_URL:http://localhost:3005/api/webhooks/assessment-event}
+    webhook-hmac-secret: ${LMS_WEBHOOK_HMAC_SECRET:codingrank_school_hmac_webhook_secret_key}
+    m2m-api-key: ${LMS_M2M_API_KEY:crs_m2m_assessment_api_key_secure_value}
+
+# Code Judge Engine
+assessment:
+  judge:
+    docker-enabled: ${DOCKER_ENABLED:true}
+    allow-unsandboxed: ${ALLOW_UNSANDBOXED_EXECUTION:false}
+    execution-timeout-ms: 5000
+    max-memory-mb: 128
+

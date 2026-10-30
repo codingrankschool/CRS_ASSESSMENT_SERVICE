@@ -1,0 +1,20 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/testdb
+    redis:
+      repositories:
+        enabled: false
+
+lms:
+  integration:
+    jwt-secret: test_jwt_secret_with_sufficient_length_for_hmac_sha256_32bytes_long
+    webhook-url: http://localhost:3005/api/webhooks/assessment-event
+    webhook-hmac-secret: test_hmac_secret
+    m2m-api-key: test_api_key
+
+assessment:
+  judge:
+    docker-enabled: false
+    allow-unsandboxed: true
+    execution-timeout-ms: 3000

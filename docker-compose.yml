@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  crs-assessment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crs-assessment-service
+    restart: always
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=8085
+      - DATABASE_URL=${DATABASE_URL:-mongodb+srv://anandsinghyadav_codingrank:Anand%40codingrankschool@codingrank.stidlhy.mongodb.net/codingrankschool?appName=codingrank}
+      - JWT_SECRET=${JWT_SECRET:-supersecretkey}
+      - LMS_WEBHOOK_URL=${LMS_WEBHOOK_URL:-http://localhost:3005/api/webhooks/assessment-event}
+      - LMS_WEBHOOK_HMAC_SECRET=${LMS_WEBHOOK_HMAC_SECRET:-codingrank_school_hmac_webhook_secret_key}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+        reservations:
+          cpus: '0.5'
+          memory: 512M

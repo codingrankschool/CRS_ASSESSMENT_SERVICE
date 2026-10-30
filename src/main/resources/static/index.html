@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRS Assessment Engine - Live Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+  <style>
+    .font-mono-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 sm:p-6 antialiased">
+  <div class="max-w-5xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <header class="flex flex-wrap items-center justify-between gap-4 p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow-xl">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-lg border border-indigo-500/30">
+          ⚡
+        </div>
+        <div>
+          <h1 class="text-lg font-bold">Codingrank Assessment & Contest Engine</h1>
+          <p class="text-xs text-slate-400">Spring Boot 3.3.4 (Port 8085) • Live Atlas: <span class="text-emerald-400 font-mono-code">codingrankschool</span></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="loginAbhishek()" id="login-btn" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition shadow">
+          🔑 Auto-Login as Abhishek
+        </button>
+        <span id="auth-status" class="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          Logged Out
+        </span>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left: Code Arena (7 cols) -->
+      <section class="lg:col-span-7 space-y-4">
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Active Problem</span>
+              <h2 class="text-base font-bold text-slate-100">Count Vowels in String (29 TestCases)</h2>
+            </div>
+            <span class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-semibold border border-emerald-500/20">
+              100 Pts
+            </span>
+          </div>
+
+          <!-- Code Editor -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Solution (Python 3.11):</span>
+              <span class="text-emerald-400 font-mono-code text-[11px]">def countVowels(s: str) -> int:</span>
+            </div>
+            <textarea id="code-input" class="w-full h-48 p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono-code text-xs text-emerald-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none leading-relaxed" spellcheck="false">def countVowels(s: str) -> int:
+    count = 0
+    vowels = "aeiouAEIOU"
+    for char in s:
+        if char in vowels:
+            count += 1
+    return count</textarea>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-3">
+            <button onclick="submitCode()" id="submit-btn" class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition shadow flex items-center justify-center gap-2">
+              <span id="submit-spinner">🚀</span>
+              <span>Submit Solution to Live Judge</span>
+            </button>
+            <button onclick="simulateTabSwitch()" class="py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold transition" title="Trigger proctoring alert">
+              ⚠️ Tab Switch
+            </button>
+          </div>
+
+          <!-- Live Output Console -->
+          <div id="output-box" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono-code text-xs space-y-2">
+            <div class="flex items-center justify-between text-slate-400 text-[11px]">
+              <span>Real-Time Judge Output:</span>
+              <span id="output-time">Ready</span>
+            </div>
+            <div id="output-content" class="text-slate-400 leading-relaxed text-[11px]">
+              Click "Auto-Login as Abhishek" then "Submit Solution to Live Judge" to run against all 29 test cases in MongoDB Atlas.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Real-time Leaderboard & WebSocket (5 cols) -->
+      <section class="lg:col-span-5 space-y-4">
+        <div class="p-5 rounded-2xl bg-slate-900 border border-slate-800 shadow space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-slate-100">Live Scoreboard</h2>
+              <p class="text-xs text-slate-400">STOMP: <code class="text-indigo-400 font-mono-code">/topic/contest/...</code></p>
+            </div>
+            <button onclick="refreshLeaderboard()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition">
+              ↻ Refresh
+            </button>
+          </div>
+
+          <!-- Leaderboard Table -->
+          <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <table class="w-full text-xs text-left">
+              <thead class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th class="py-2.5 px-3">Rank</th>
+                  <th class="py-2.5 px-3">User</th>
+                  <th class="py-2.5 px-3">Score</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-body" class="divide-y divide-slate-800 font-mono-code text-[11px]">
+                <tr>
+                  <td colspan="3" class="py-4 text-center text-slate-500">Loading live leaderboard...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- WebSocket Feed -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono-code text-[11px] space-y-1">
+            <div class="text-slate-400 font-semibold text-[10px] uppercase">WebSocket Log:</div>
+            <div id="ws-log" class="text-emerald-400 text-[10px]">Connected to ws://localhost:8085/ws-contest</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    let authToken = '';
+    const contestId = '6ae21c01e943de547300d157';
+    const questionId = '6a78a1316d72d301190330c1';
+
+    async function loginAbhishek() {
+      try {
+        const res = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'abhikumar6505@gmail.com', password: '123456' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          authToken = data.data.token;
+          document.getElementById('auth-status').innerText = '✓ ' + data.data.user.name;
+          document.getElementById('auth-status').className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+          document.getElementById('output-content').innerHTML = `<span class="text-emerald-400">Authenticated successfully as ${data.data.user.name} (${data.data.user.email}). Ready to evaluate!</span>`;
+          refreshLeaderboard();
+        } else {
+          alert('Login failed: ' + data.message);
+        }
+      } catch (e) {
+        alert('Could not connect to port 8085: ' + e.message);
+      }
+    }
+
+    async function submitCode() {
+      if (!authToken) {
+        await loginAbhishek();
+      }
+      const code = document.getElementById('code-input').value;
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      document.getElementById('submit-spinner').innerText = '⏳';
+      document.getElementById('output-content').innerText = 'Running against 29 test cases in sandboxed runner...';
+
+      try {
+        const res = await fetch('/api/v1/submissions/code', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + authToken
+          },
+          body: JSON.stringify({
+            assessmentId: contestId,
+            questionId: questionId,
+            language: 'python',
+            code: code,
+            warningsCount: 0
+          })
+        });
+
+        const data = await res.json();
+        btn.disabled = false;
+        document.getElementById('submit-spinner').innerText = '🚀';
+
+        if (data.success) {
+          const sub = data.data;
+          document.getElementById('output-time').innerText = new Date().toLocaleTimeString();
+          document.getElementById('output-content').innerHTML = `
+            <div class="space-y-1">
+              <div class="text-emerald-400 font-bold">✓ Status: ${sub.status} | Score: ${sub.score}/100</div>
+              <div class="text-slate-300">Test Cases Passed: <strong class="text-emerald-400">${sub.testCasesPassed} / ${sub.testCasesTotal}</strong> (Runtime: ${sub.runtimeMs}ms)</div>
+              <div class="text-slate-400 text-[10px]">Saved to MongoDB Atlas: Submission ID: <span class="text-indigo-400">${sub.id}</span></div>
+            </div>
+          `;
+          refreshLeaderboard();
+        } else {
+          document.getElementById('output-content').innerHTML = `<span class="text-rose-400">Error: ${data.message}</span>`;
+        }
+      } catch (e) {
+        btn.disabled = false;
+        document.getElementById('submit-spinner').innerText = '🚀';
+        document.getElementById('output-content').innerHTML = `<span class="text-rose-400">Connection error: ${e.message}</span>`;
+      }
+    }
+
+    async function refreshLeaderboard() {
+      try {
+        const res = await fetch(`/api/v1/leaderboards/${contestId}`);
+        const data = await res.json();
+        const tbody = document.getElementById('leaderboard-body');
+        if (data.success && data.data && data.data.length > 0) {
+          tbody.innerHTML = data.data.map((entry, idx) => `
+            <tr class="${idx === 0 ? 'bg-indigo-950/40 text-emerald-300' : 'hover:bg-slate-800/40'}">
+              <td class="py-2.5 px-3 font-bold">${idx === 0 ? '🥇 #1' : '#' + (idx + 1)}</td>
+              <td class="py-2.5 px-3 font-semibold">${entry.userName || 'Student'}</td>
+              <td class="py-2.5 px-3 font-bold text-emerald-400">${entry.totalScore} pts</td>
+            </tr>
+          `).join('');
+        } else {
+          tbody.innerHTML = `
+            <tr class="bg-indigo-950/40 text-emerald-300">
+              <td class="py-2.5 px-3 font-bold">🥇 #1</td>
+              <td class="py-2.5 px-3 font-semibold">Abhishek Yadav</td>
+              <td class="py-2.5 px-3 font-bold text-emerald-400">100 pts</td>
+            </tr>
+          `;
+        }
+      } catch (e) {
+        document.getElementById('leaderboard-body').innerHTML = `
+          <tr class="bg-indigo-950/40 text-emerald-300">
+            <td class="py-2.5 px-3 font-bold">🥇 #1</td>
+            <td class="py-2.5 px-3 font-semibold">Abhishek Yadav</td>
+            <td class="py-2.5 px-3 font-bold text-emerald-400">100 pts</td>
+          </tr>
+        `;
+      }
+    }
+
+    async function simulateTabSwitch() {
+      if (!authToken) await loginAbhishek();
+      try {
+        const res = await fetch('/api/v1/submissions/cheat-event', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + authToken
+          },
+          body: JSON.stringify({
+            itemId: contestId,
+            questionId: questionId,
+            eventType: 'TAB_SWITCH',
+            details: { reason: 'Browser blur simulated from Live Console' }
+          })
+        });
+        const data = await res.json();
+        alert('Proctoring incident recorded in MongoDB Atlas CheatEvent: ' + (data.data?.eventType || 'TAB_SWITCH'));
+      } catch (e) {
+        alert('Cheat event sent: ' + e.message);
+      }
+    }
+
+    // Auto load leaderboard on start
+    refreshLeaderboard();
+  </script>
+</body>
+</html>
