@@ -98,6 +98,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        String traceId = MDC.get(MdcLoggingFilter.MDC_TRACE_ID);
+        log.warn("Resource not found [TraceId: {}]: /{}", traceId, ex.getResourcePath());
+
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(false)
+                .message("Resource not found: /" + ex.getResourcePath())
+                .timestamp(Instant.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleGenericException(Exception ex) {
         String traceId = MDC.get(MdcLoggingFilter.MDC_TRACE_ID);
