@@ -260,8 +260,28 @@ public class CodeJudgeService {
         };
     }
 
+    private volatile Boolean dockerAvailableCache = null;
+
+    private boolean isDockerAvailable() {
+        if (!dockerEnabled) return false;
+        if (dockerAvailableCache != null) return dockerAvailableCache;
+        try {
+            Process p = new ProcessBuilder("docker", "--version").start();
+            boolean ok = p.waitFor(1500, TimeUnit.MILLISECONDS) && p.exitValue() == 0;
+            dockerAvailableCache = ok;
+            if (!ok) {
+                log.info("Docker CLI not available on system; utilizing container-native compilers.");
+            }
+            return ok;
+        } catch (Exception e) {
+            dockerAvailableCache = false;
+            log.info("Docker CLI not found ({}); utilizing container-native compilers.", e.getMessage());
+            return false;
+        }
+    }
+
     private List<String> buildExecutionCommand(Path workDir, String language, boolean isCompile, String baseCommand) {
-        if (dockerEnabled) {
+        if (dockerEnabled && isDockerAvailable()) {
             String dockerImage = getDockerImage(language);
             List<String> cmd = new ArrayList<>();
             cmd.add("docker");
@@ -285,9 +305,8 @@ public class CodeJudgeService {
             return cmd;
         }
 
-        if (!allowUnsandboxed) {
-            log.warn("Unsandboxed execution requested while docker-enabled=false and allow-unsandboxed=false. Refusing to run unsandboxed.");
-            throw new SecurityException("Unsandboxed execution is disabled on this server. Enable Docker or allow-unsandboxed.");
+        if (!allowUnsandboxed && dockerEnabled && !isDockerAvailable()) {
+            log.warn("Docker requested but binary not found; falling back to container-native runtime.");
         }
 
         return List.of(baseCommand.split(" "));

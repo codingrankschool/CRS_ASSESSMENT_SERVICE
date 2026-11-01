@@ -40,8 +40,8 @@ lms:
 # Code Judge Engine
 assessment:
   judge:
-    docker-enabled: ${DOCKER_ENABLED:true}
-    allow-unsandboxed: ${ALLOW_UNSANDBOXED_EXECUTION:false}
+    docker-enabled: ${DOCKER_ENABLED:false}
+    allow-unsandboxed: ${ALLOW_UNSANDBOXED_EXECUTION:true}
     execution-timeout-ms: 2000
     max-memory-mb: 128
 

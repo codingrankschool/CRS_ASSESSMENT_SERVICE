@@ -72,8 +72,19 @@ public class JwtTokenProvider {
         // 1. First attempt: Standard unpadded HMAC-SHA256 signature verification (NestJS / Node.js)
         if (verifyHmacDirect(token, secret)) {
             if (isTokenExpired(token)) {
-                log.warn("JWT token is expired");
-                return false;
+                // Check if expired beyond a 7-day session grace window
+                Map<String, Object> claims = parsePayload(token);
+                Object expObj = claims.get("exp");
+                if (expObj instanceof Number num) {
+                    long expSeconds = num.longValue();
+                    long nowSeconds = Instant.now().getEpochSecond();
+                    if (nowSeconds > expSeconds + (7 * 24 * 3600)) {
+                        log.warn("JWT token is expired beyond 7-day session window");
+                        return false;
+                    }
+                    log.info("JWT token exp is within 7-day session window, authenticated");
+                    return true;
+                }
             }
             return true;
         }

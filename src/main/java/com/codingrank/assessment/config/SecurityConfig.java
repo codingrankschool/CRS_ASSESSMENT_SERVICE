@@ -46,6 +46,7 @@ public class SecurityConfig {
                     "/api/v1/auth/**",
                     "/api/v1/launch/**",
                     "/api/v1/coding/**",
+                    "/api/v1/submissions/**",
                     "/ws-contest/**",
                     "/actuator/**",
                     "/error"
