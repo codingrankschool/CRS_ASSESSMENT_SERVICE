@@ -24,13 +24,16 @@ import java.util.regex.Pattern;
 public class CodeJudgeService {
 
     @Value("${assessment.judge.execution-timeout-ms:2000}")
-    private long executionTimeoutMs;
+    private long executionTimeoutMs = 2000L;
 
-    @Value("${assessment.judge.allow-unsandboxed:false}")
-    private boolean allowUnsandboxed;
+    @Value("${assessment.judge.allow-unsandboxed:true}")
+    private boolean allowUnsandboxed = true;
 
     @Value("${assessment.judge.docker-enabled:false}")
-    private boolean dockerEnabled;
+    private boolean dockerEnabled = false;
+
+    @Value("${assessment.judge.max-memory-mb:256}")
+    private int maxMemoryMb = 256;
 
     private final ExecutorService testCaseExecutor = Executors.newFixedThreadPool(8);
 
@@ -73,7 +76,8 @@ public class CodeJudgeService {
             String compileCommand = getCompileCommand(language, sourceFile);
             if (compileCommand != null) {
                 log.debug("Compiling code with command: '{}' in workDir: '{}'", compileCommand, workDir);
-                Process compileProcess = new ProcessBuilder(compileCommand.split(" "))
+                List<String> fullCompileCmd = buildExecutionCommand(workDir, language, true, compileCommand);
+                Process compileProcess = new ProcessBuilder(fullCompileCmd)
                         .directory(workDir.toFile())
                         .redirectErrorStream(true)
                         .start();
@@ -170,7 +174,8 @@ public class CodeJudgeService {
         Process process = null;
         long start = System.currentTimeMillis();
         try {
-            process = new ProcessBuilder(runCommand.split(" "))
+            List<String> fullRunCmd = buildExecutionCommand(workDir, language, false, runCommand);
+            process = new ProcessBuilder(fullRunCmd)
                     .directory(workDir.toFile())
                     .redirectErrorStream(true)
                     .start();
@@ -252,6 +257,49 @@ public class CodeJudgeService {
             case "javascript", "js", "node" -> "node solution.js";
             case "typescript", "ts" -> "node --experimental-strip-types solution.ts";
             default -> "cat";
+        };
+    }
+
+    private List<String> buildExecutionCommand(Path workDir, String language, boolean isCompile, String baseCommand) {
+        if (dockerEnabled) {
+            String dockerImage = getDockerImage(language);
+            List<String> cmd = new ArrayList<>();
+            cmd.add("docker");
+            cmd.add("run");
+            cmd.add("--rm");
+            cmd.add("-i");
+            cmd.add("--network");
+            cmd.add("none");
+            cmd.add("--memory");
+            cmd.add(maxMemoryMb + "m");
+            cmd.add("--cpus");
+            cmd.add("1.0");
+            cmd.add("--pids-limit");
+            cmd.add("64");
+            cmd.add("-v");
+            cmd.add(workDir.toAbsolutePath().toString() + ":/app");
+            cmd.add("-w");
+            cmd.add("/app");
+            cmd.add(dockerImage);
+            cmd.addAll(List.of(baseCommand.split(" ")));
+            return cmd;
+        }
+
+        if (!allowUnsandboxed) {
+            log.warn("Unsandboxed execution requested while docker-enabled=false and allow-unsandboxed=false. Refusing to run unsandboxed.");
+            throw new SecurityException("Unsandboxed execution is disabled on this server. Enable Docker or allow-unsandboxed.");
+        }
+
+        return List.of(baseCommand.split(" "));
+    }
+
+    private String getDockerImage(String language) {
+        return switch (language.toLowerCase().trim()) {
+            case "python", "py" -> "python:3.11-slim";
+            case "java" -> "eclipse-temurin:21-jdk-alpine";
+            case "cpp", "c++", "cc", "c" -> "gcc:13-bookworm";
+            case "javascript", "js", "node", "typescript", "ts" -> "node:20-alpine";
+            default -> "alpine:latest";
         };
     }
 
