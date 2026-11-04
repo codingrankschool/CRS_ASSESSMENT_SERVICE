@@ -36,9 +36,12 @@ public class SubmissionService {
     private final LeaderboardService leaderboardService;
     private final LmsIntegrationService lmsIntegrationService;
     private final QuizEvaluatorService quizEvaluatorService;
+    private final LanguagePolicyService languagePolicyService;
     private final MongoTemplate mongoTemplate;
 
     public Submission submitCode(String userId, String userEmail, String userName, SubmitCodeRequest request) {
+        languagePolicyService.assertAllowed(request.getAssessmentId(), request.getLanguage());
+
         // Resolve real student name and email from Atlas User collection if available
         if (userId != null && !userId.isBlank()) {
             Optional<User> userOpt = userRepository.findById(userId);
