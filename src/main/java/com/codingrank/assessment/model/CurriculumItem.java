@@ -43,6 +43,10 @@ public class CurriculumItem {
     @Builder.Default
     private int order = 0;
 
+    // Languages this item is limited to; empty means every language is allowed.
+    @Builder.Default
+    private List<String> allowedLanguages = new ArrayList<>();
+
     @CreatedDate
     private Instant createdAt;
 

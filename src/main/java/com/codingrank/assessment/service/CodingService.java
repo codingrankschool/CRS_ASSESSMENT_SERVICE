@@ -19,8 +19,11 @@ public class CodingService {
     private final CodeJudgeService codeJudgeService;
     private final QuestionRepository questionRepository;
     private final SubmissionService submissionService;
+    private final LanguagePolicyService languagePolicyService;
 
     public Map<String, Object> executeCode(ExecuteCodeRequest request) {
+        languagePolicyService.assertAllowed(request.getAssessmentId(), request.getLanguage());
+
         Question question = null;
         if (request.getQuestionId() != null && !request.getQuestionId().isBlank()) {
             question = questionRepository.findById(request.getQuestionId()).orElse(null);
