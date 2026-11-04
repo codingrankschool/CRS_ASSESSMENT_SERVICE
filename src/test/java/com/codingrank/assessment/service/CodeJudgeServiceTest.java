@@ -318,4 +318,114 @@ class CodeJudgeServiceTest {
         ExecutionResultDto result = judgeService.evaluate(q, tcs, jsCode, "javascript");
         assertEquals(SubmissionStatus.PASSED, result.getStatus());
     }
+
+    private void assertPasses(String signature, String code, String language, String input, String output) {
+        Question question = Question.builder()
+                .id("q_args")
+                .title("Argument handling")
+                .functionSignature(signature)
+                .points(100)
+                .build();
+        List<TestCase> cases = List.of(TestCase.builder().input(input).output(output).isHidden(false).build());
+
+        ExecutionResultDto result = judgeService.evaluate(question, cases, code, language);
+
+        assertEquals(SubmissionStatus.PASSED, result.getStatus(),
+                () -> signature + " on " + language + " gave " + result.getTestCaseDetails());
+    }
+
+    @Test
+    void testJavaScriptWithUntypedSignatureGetsSeparateArguments() {
+        assertPasses("function findRemainder(totalItems, centersCount)",
+                "function findRemainder(totalItems, centersCount) {\n    return totalItems % centersCount;\n}",
+                "javascript", "10, 3", "1");
+        assertPasses("function calculateFullBatches(totalItems, boxCapacity)",
+                "function calculateFullBatches(totalItems, boxCapacity) {\n    return Number(Math.floor(totalItems / boxCapacity));\n}",
+                "javascript", "27, 5", "5");
+        assertPasses("function computeSquaredDistance(coord1, coord2)",
+                "function computeSquaredDistance(coord1, coord2) {\n    return Math.pow(coord1 - coord2, 2);\n}",
+                "javascript", "5, 2", "9");
+        assertPasses("function calculateTotalCost(prices, quantities)",
+                "function calculateTotalCost(prices, quantities) {\n    let total = 0;\n    for (let i = 0; i < prices.length; i++) {\n        total += prices[i] * quantities[i];\n    }\n    return total;\n}",
+                "javascript", "[10,20], [2,3]", "80");
+    }
+
+    @Test
+    void testJavaScriptRenamedFunctionStillRuns() {
+        assertPasses("function trackEnergy(baseEnergy, pulses)",
+                "function calculateFinalEnergy(baseEnergy, pulses) {\n    let energy = baseEnergy;\n    for (let pulse of pulses) {\n        energy += pulse;\n    }\n    return energy;\n}",
+                "javascript", "100, [10,-5,20]", "125");
+        assertPasses("function trackEnergy(baseEnergy, pulses)",
+                "const trackEnergy = (baseEnergy, pulses) => pulses.reduce((sum, pulse) => sum + pulse, baseEnergy);",
+                "javascript", "50, []", "50");
+    }
+
+    @Test
+    void testJavaScriptSingleUntypedParameter() {
+        String reverse = "function reverse(s) {\n    return s.split('').reverse().join('');\n}";
+        assertPasses("function reverse(s)", reverse, "javascript", "[\"abc\"]", "cba");
+        assertPasses("function reverse(s)", reverse, "javascript", "\"abc\"", "cba");
+        assertPasses("function sum(nums)",
+                "function sum(nums) {\n    return nums.reduce((a, b) => a + b, 0);\n}",
+                "javascript", "[1,2,3]", "6");
+        assertPasses("function double(n)", "function double(n) {\n    return n + n;\n}", "javascript", "4", "8");
+        assertPasses("function count(words)",
+                "function count(words) {\n    return words.length;\n}",
+                "javascript", "[\"a\",\"b\"]", "2");
+    }
+
+    @Test
+    void testPythonWithUntypedSignatureGetsSeparateArguments() {
+        assertPasses("function findRemainder(totalItems, centersCount)",
+                "def findRemainder(totalItems, centersCount):\n    return totalItems % centersCount\n",
+                "python", "10, 3", "1");
+        assertPasses("function calculateTotalCost(prices, quantities)",
+                "def calculateTotalCost(prices, quantities):\n    return sum(p * q for p, q in zip(prices, quantities))\n",
+                "python", "[10,20], [2,3]", "80");
+        assertPasses("function trackEnergy(baseEnergy, pulses)",
+                "def calculate_final_energy(base_energy, pulses):\n    return base_energy + sum(pulses)\n",
+                "python", "100, [10,-5,20]", "125");
+        assertPasses("function reverse(s)", "def reverse(s):\n    return s[::-1]\n", "python", "[\"abc\"]", "cba");
+    }
+
+    @Test
+    void testCppTypesComeFromCodeWhenSignatureIsUntyped() {
+        assertPasses("function findRemainder(totalItems, centersCount)",
+                "int findRemainder(int totalItems, int centersCount) {\n    return totalItems % centersCount;\n}",
+                "cpp", "10, 3", "1");
+        assertPasses("function trackEnergy(baseEnergy, pulses)",
+                "int calculateFinalEnergy(int baseEnergy, vector<int> pulses) {\n    for (int pulse : pulses) baseEnergy += pulse;\n    return baseEnergy;\n}",
+                "cpp", "100, [10,-5,20]", "125");
+    }
+
+    @Test
+    void testCppTwoArrayArguments() {
+        assertPasses("function calculateTotalCost(prices, quantities)",
+                "int calculateTotalCost(vector<int> prices, vector<int> quantities) {\n    int total = 0;\n    for (size_t i = 0; i < prices.size(); i++) total += prices[i] * quantities[i];\n    return total;\n}",
+                "cpp", "[10,20], [2,3]", "80");
+    }
+
+    @Test
+    void testCWithTwoNumbers() {
+        assertPasses("function findRemainder(totalItems, centersCount)",
+                "int findRemainder(int totalItems, int centersCount) {\n    return totalItems % centersCount;\n}",
+                "c", "10, 3", "1");
+    }
+
+    @Test
+    void testJavaWithUntypedSignature() {
+        assertPasses("function findRemainder(totalItems, centersCount)",
+                "class Solution {\n    public int findRemainder(int totalItems, int centersCount) {\n        return totalItems % centersCount;\n    }\n}",
+                "java", "10, 3", "1");
+        assertPasses("function calculateTotalCost(prices, quantities)",
+                "class Solution {\n    public int calculateTotalCost(int[] prices, int[] quantities) {\n        int total = 0;\n        for (int i = 0; i < prices.length; i++) total += prices[i] * quantities[i];\n        return total;\n    }\n}",
+                "java", "[10,20], [2,3]", "80");
+    }
+
+    @Test
+    void testTypedParameterNamesAreNotMistakenForNumbers() {
+        assertPasses("string shout(string points)",
+                "string shout(string points) {\n    return points + \"!\";\n}",
+                "cpp", "\"hi\"", "hi!");
+    }
 }

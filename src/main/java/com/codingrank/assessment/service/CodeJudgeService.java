@@ -391,12 +391,23 @@ public class CodeJudgeService {
             "import", "package", "const", "let", "var", "function", "def", "static", "final"
     );
 
+    private static final Pattern UNTYPED_PARAM = Pattern.compile("(\\.\\.\\.)?[A-Za-z_$][\\w$]*(\\s*=.*)?");
+    private static final Pattern NUMBER_TYPE = Pattern.compile("\\b(int|integer|long|short|double|float|number)\\b");
+    private static final Pattern BOOLEAN_TYPE = Pattern.compile("\\b(bool|boolean)\\b");
+
     private String extractTargetFunctionName(String code, Question question) {
+        String signatureName = null;
         if (question != null && question.getFunctionSignature() != null && !question.getFunctionSignature().isBlank()) {
             Matcher m = Pattern.compile("([a-zA-Z0-9_$]+)\\s*\\(").matcher(question.getFunctionSignature().trim());
             if (m.find()) {
                 String name = m.group(1);
-                if (!RESERVED_KEYWORDS.contains(name)) return name;
+                if (!RESERVED_KEYWORDS.contains(name)) {
+                    signatureName = name;
+                    // A student may rename the function, so only trust the name if the code uses it.
+                    if (code == null || Pattern.compile("(?<![\\w$])" + Pattern.quote(name) + "(?![\\w$])").matcher(code).find()) {
+                        return name;
+                    }
+                }
             }
         }
         if (code != null) {
@@ -412,7 +423,7 @@ public class CodeJudgeService {
                 if (!RESERVED_KEYWORDS.contains(name)) return name;
             }
         }
-        return "solve";
+        return signatureName != null ? signatureName : "solve";
     }
 
     private List<String> extractParamTypes(String code, Question question) {
@@ -429,23 +440,14 @@ public class CodeJudgeService {
                         String[] parts = p.split(":");
                         list.add(parts[1].trim().toLowerCase());
                     } else {
-                        String lower = p.toLowerCase();
-                        if (lower.contains("vector<vector<int>>") || lower.contains("int[][]")) {
-                            list.add("number[][]");
-                        } else if (lower.contains("vector<int>") || lower.contains("int[]") || lower.contains("number[]") || lower.contains("vector<long>")) {
-                            list.add("number[]");
-                        } else if (lower.contains("vector<string>") || lower.contains("string[]")) {
-                            list.add("string[]");
-                        } else if (lower.contains("int") || lower.contains("long") || lower.contains("double") || lower.contains("float") || lower.contains("number")) {
-                            list.add("number");
-                        } else if (lower.contains("bool")) {
-                            list.add("boolean");
-                        } else {
-                            list.add("string");
-                        }
+                        list.add(classifyParam(p));
                     }
                 }
-                return list;
+                // Names alone say nothing about types, so read them from the student's code.
+                if (list.stream().anyMatch(type -> !type.isEmpty())) {
+                    return list;
+                }
+                list.clear();
             }
         }
         if (code != null) {
@@ -456,26 +458,58 @@ public class CodeJudgeService {
                 String inner = m.group(1).trim();
                 if (!inner.isEmpty()) {
                     for (String p : inner.split(",")) {
-                        String lower = p.trim().toLowerCase();
-                        if (lower.contains("vector<vector<int>>") || lower.contains("int[][]")) {
-                            list.add("number[][]");
-                        } else if (lower.contains("vector<int>") || lower.contains("int[]") || lower.contains("number[]")) {
-                            list.add("number[]");
-                        } else if (lower.contains("vector<string>") || lower.contains("string[]")) {
-                            list.add("string[]");
-                        } else if (lower.contains("int") || lower.contains("long") || lower.contains("double") || lower.contains("float") || lower.contains("number")) {
-                            list.add("number");
-                        } else if (lower.contains("bool")) {
-                            list.add("boolean");
-                        } else {
-                            list.add("string");
-                        }
+                        list.add(classifyParam(p));
                     }
                     return list;
                 }
             }
         }
         return list;
+    }
+
+    /** The parameter's type, or "" when it is only a name, as in JavaScript and untyped Python. */
+    private String classifyParam(String param) {
+        String p = param.trim();
+        if (UNTYPED_PARAM.matcher(p).matches()) {
+            return "";
+        }
+        String lower = p.toLowerCase();
+        if (lower.contains("vector<vector<int>>") || lower.contains("int[][]")) {
+            return "number[][]";
+        }
+        if (lower.contains("vector<int>") || lower.contains("int[]") || lower.contains("number[]") || lower.contains("vector<long>")) {
+            return "number[]";
+        }
+        if (lower.contains("vector<string>") || lower.contains("string[]")) {
+            return "string[]";
+        }
+        if (NUMBER_TYPE.matcher(lower).find()) {
+            return "number";
+        }
+        if (BOOLEAN_TYPE.matcher(lower).find()) {
+            return "boolean";
+        }
+        return "string";
+    }
+
+    private String callCFunction(String targetFn, List<String> params) {
+        boolean allNumbers = !params.isEmpty() && params.stream().allMatch(type -> type.equals("number") || type.equals("int"));
+        if (!allNumbers) {
+            return "    int res = " + targetFn + "(p);\n";
+        }
+        if (params.size() == 1) {
+            return "    int res = " + targetFn + "(atoi(p));\n";
+        }
+        StringBuilder call = new StringBuilder("    long args[" + params.size() + "] = {0};\n"
+                + "    for (int i = 0; i < " + params.size() + " && *p; i++) {\n"
+                + "        while (*p && *p != '-' && !isdigit((unsigned char)*p)) p++;\n"
+                + "        args[i] = strtol(p, &p, 10);\n"
+                + "    }\n"
+                + "    int res = " + targetFn + "(");
+        for (int i = 0; i < params.size(); i++) {
+            call.append(i == 0 ? "" : ", ").append("args[").append(i).append("]");
+        }
+        return call.append(");\n").toString();
     }
 
     private String wrapCodeIfNeeded(String code, String language, Question question) {
@@ -544,6 +578,8 @@ public class CodeJudgeService {
                     + "\n"
                     + "        try:\n"
                     + "            if param_count == 1:\n"
+                    + "                if p0_type == '' and isinstance(parsed, list) and len(parsed) == 1 and isinstance(parsed[0], str):\n"
+                    + "                    parsed = parsed[0]\n"
                     + "                try:\n"
                     + "                    res = target_func(parsed)\n"
                     + "                except TypeError:\n"
@@ -626,6 +662,9 @@ public class CodeJudgeService {
                     + "    try {\n"
                     + "        let res;\n"
                     + "        if (fn.length === 1) {\n"
+                    + "            if (p0Type === '' && Array.isArray(parsed) && parsed.length === 1 && typeof parsed[0] === 'string') {\n"
+                    + "                parsed = parsed[0];\n"
+                    + "            }\n"
                     + "            try {\n"
                     + "                res = fn(parsed);\n"
                     + "            } catch(callErr) {\n"
@@ -747,10 +786,19 @@ public class CodeJudgeService {
                     + "        }\n"
                     + "        return res;\n"
                     + "    }\n"
+                    + "    private static boolean closesAtEnd(String raw) {\n"
+                    + "        int depth = 0;\n"
+                    + "        for (int i = 0; i < raw.length(); i++) {\n"
+                    + "            char c = raw.charAt(i);\n"
+                    + "            if (c == '[') depth++;\n"
+                    + "            else if (c == ']' && --depth == 0) return i == raw.length() - 1;\n"
+                    + "        }\n"
+                    + "        return false;\n"
+                    + "    }\n"
                     + "    private static java.util.List<String> splitArgs(String raw) {\n"
                     + "        java.util.List<String> list = new java.util.ArrayList<>();\n"
                     + "        raw = raw.trim();\n"
-                    + "        if (raw.startsWith(\"[\") && raw.endsWith(\"]\")) {\n"
+                    + "        if (raw.startsWith(\"[\") && closesAtEnd(raw)) {\n"
                     + "            raw = raw.substring(1, raw.length() - 1).trim();\n"
                     + "        }\n"
                     + "        int depth = 0;\n"
@@ -945,11 +993,20 @@ static inline vector<string> _parseVectorString(string s) {
     return res;
 }
 
+static inline bool _closesAtEnd(const string& raw) {
+    int depth = 0;
+    for (size_t i = 0; i < raw.size(); i++) {
+        if (raw[i] == '[') depth++;
+        else if (raw[i] == ']' && --depth == 0) return i == raw.size() - 1;
+    }
+    return false;
+}
+
 static inline vector<string> _splitArgs(string raw) {
     vector<string> list;
     while (!raw.empty() && (raw.back() == '\\r' || raw.back() == '\\n' || raw.back() == ' ')) raw.pop_back();
     while (!raw.empty() && (raw.front() == '\\r' || raw.front() == '\\n' || raw.front() == ' ')) raw.erase(raw.begin());
-    if (raw.size() >= 2 && raw.front() == '[' && raw.back() == ']') {
+    if (raw.size() >= 2 && raw.front() == '[' && _closesAtEnd(raw)) {
         raw = raw.substr(1, raw.size() - 2);
     }
     int depth = 0;
@@ -1069,9 +1126,7 @@ int main() {
                     + "        char* end = strrchr(p, '\"');\n"
                     + "        if (end) *end = '\\0';\n"
                     + "    }\n"
-                    + (params.size() == 1 && (params.get(0).equals("number") || params.get(0).equals("int"))
-                        ? "    int res = " + targetFn + "(atoi(p));\n"
-                        : "    int res = " + targetFn + "(p);\n")
+                    + callCFunction(targetFn, params)
                     + "    printf(\"%d\\n\", res);\n"
                     + "    return 0;\n"
                     + "}\n";
