@@ -32,6 +32,7 @@ public class SubmissionService {
     private final TestCaseRepository testCaseRepository;
     private final SubmissionRepository submissionRepository;
     private final CheatEventRepository cheatEventRepository;
+    private final CurriculumItemRepository curriculumItemRepository;
     private final CodeJudgeService codeJudgeService;
     private final LeaderboardService leaderboardService;
     private final LmsIntegrationService lmsIntegrationService;
@@ -109,6 +110,13 @@ public class SubmissionService {
                 .build();
 
         Submission saved = submissionRepository.save(submission);
+
+        // Added after saving, so these values never reach the database.
+        if (evalResult.getFirstFailedHiddenCase() != null
+                && request.getAssessmentId() != null
+                && HiddenCaseRevealPolicy.canReveal(curriculumItemRepository.findById(request.getAssessmentId()).orElse(null))) {
+            saved.setRevealedFailedCase(evalResult.getFirstFailedHiddenCase());
+        }
 
         log.info("Saved code submission to MongoDB Atlas: submissionId='{}' status={} score={}/{}",
                 saved.getId(), saved.getStatus(), saved.getScore(), question.getPoints());

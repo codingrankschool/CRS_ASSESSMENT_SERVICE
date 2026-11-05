@@ -428,4 +428,35 @@ class CodeJudgeServiceTest {
                 "string shout(string points) {\n    return points + \"!\";\n}",
                 "cpp", "\"hi\"", "hi!");
     }
+
+    @Test
+    void masksHiddenCaseButKeepsItsRealValuesApart() {
+        String code = """
+                def countVowels(s: str) -> int:
+                    return 10
+                """;
+
+        ExecutionResultDto result = judgeService.evaluate(vowelQuestion, testCases, code, "python");
+
+        assertEquals(1, result.getTestCasesPassed());
+        ExecutionResultDto.TestCaseResult stored = result.getTestCaseDetails().get(1);
+        assertEquals("<hidden>", stored.getInput());
+        assertEquals("<hidden>", stored.getExpectedOutput());
+        assertEquals("<hidden>", stored.getActualOutput());
+
+        ExecutionResultDto.TestCaseResult failed = result.getFirstFailedHiddenCase();
+        assertEquals("[\"hello world\"]", failed.getInput());
+        assertEquals("3", failed.getExpectedOutput());
+        assertEquals("10", failed.getActualOutput());
+    }
+
+    @Test
+    void hasNoRevealWhenHiddenCasesPass() {
+        String code = """
+                def countVowels(s: str) -> int:
+                    return sum(1 for c in s if c in "aeiouAEIOU")
+                """;
+
+        assertNull(judgeService.evaluate(vowelQuestion, testCases, code, "python").getFirstFailedHiddenCase());
+    }
 }

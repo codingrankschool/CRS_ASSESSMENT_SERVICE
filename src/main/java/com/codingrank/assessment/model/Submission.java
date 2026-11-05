@@ -66,4 +66,8 @@ public class Submission {
 
     @CreatedDate
     private Instant createdAt;
+
+    /** First failing hidden case, sent back once in practice only. Transient, so never stored in the database. */
+    @org.springframework.data.annotation.Transient
+    private com.codingrank.assessment.dto.ExecutionResultDto.TestCaseResult revealedFailedCase;
 }
