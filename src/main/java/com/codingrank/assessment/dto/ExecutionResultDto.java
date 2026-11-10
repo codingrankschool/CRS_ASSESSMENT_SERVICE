@@ -21,6 +21,8 @@ public class ExecutionResultDto {
     private long memoryKb;
     private String compilerOutput;
     private List<TestCaseResult> testCaseDetails;
+    /** Real values of the first failing hidden case. Internal: never save this or send it without checking policy. */
+    private TestCaseResult firstFailedHiddenCase;
 
     @Data
     @Builder

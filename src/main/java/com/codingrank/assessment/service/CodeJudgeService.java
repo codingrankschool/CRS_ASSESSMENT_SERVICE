@@ -23,6 +23,8 @@ import java.util.regex.Pattern;
 @Slf4j
 public class CodeJudgeService {
 
+    private static final String HIDDEN_VALUE = "<hidden>";
+
     @Value("${assessment.judge.execution-timeout-ms:2000}")
     private long executionTimeoutMs = 2000L;
 
@@ -102,6 +104,7 @@ public class CodeJudgeService {
             int passedCount = 0;
             long maxRuntime = 0;
             SubmissionStatus overallStatus = SubmissionStatus.PASSED;
+            ExecutionResultDto.TestCaseResult firstFailedHiddenCase = null;
 
             List<CompletableFuture<ExecutionResultDto.TestCaseResult>> futures = new ArrayList<>(testCases.size());
             final Path finalWorkDir = workDir;
@@ -121,6 +124,13 @@ public class CodeJudgeService {
                             .build();
                 }
 
+                // The real values of the first failing hidden case are kept apart. The caller decides
+                // whether this student may see them, and they are never saved with the submission.
+                if (firstFailedHiddenCase == null && tcResult.isHidden() && !tcResult.isPassed()) {
+                    firstFailedHiddenCase = tcResult;
+                }
+                tcResult = maskIfHidden(tcResult);
+
                 results.add(tcResult);
                 maxRuntime = Math.max(maxRuntime, tcResult.getRuntimeMs());
 
@@ -132,7 +142,7 @@ public class CodeJudgeService {
                     }
                     if (results.size() <= 3) {
                         log.info("Test case failed: input='{}' expected='{}' actual='{}'",
-                                tcResult.isHidden() ? "<hidden>" : tcResult.getInput(),
+                                tcResult.getInput(),
                                 tcResult.getExpectedOutput(), tcResult.getActualOutput());
                     }
                 }
@@ -152,6 +162,7 @@ public class CodeJudgeService {
                     .runtimeMs(maxRuntime)
                     .compilerOutput("Evaluation Complete")
                     .testCaseDetails(results)
+                    .firstFailedHiddenCase(firstFailedHiddenCase)
                     .build();
 
         } catch (Exception e) {
@@ -192,8 +203,8 @@ public class CodeJudgeService {
             if (!completed) {
                 process.destroyForcibly();
                 return ExecutionResultDto.TestCaseResult.builder()
-                        .input(tc.isHidden() ? "<hidden>" : tc.getInput())
-                        .expectedOutput(tc.isHidden() ? "<hidden>" : tc.getExpectedOutput())
+                        .input(tc.getInput())
+                        .expectedOutput(tc.getExpectedOutput())
                         .actualOutput("Time Limit Exceeded (" + executionTimeoutMs + "ms)")
                         .passed(false)
                         .hidden(tc.isHidden())
@@ -206,9 +217,9 @@ public class CodeJudgeService {
             boolean passed = outputsMatch(actualOutput, expected);
 
             return ExecutionResultDto.TestCaseResult.builder()
-                    .input(tc.isHidden() ? "<hidden>" : tc.getInput())
-                    .expectedOutput(tc.isHidden() ? "<hidden>" : expected)
-                    .actualOutput(tc.isHidden() ? "<hidden>" : actualOutput)
+                    .input(tc.getInput())
+                    .expectedOutput(expected)
+                    .actualOutput(actualOutput)
                     .passed(passed)
                     .hidden(tc.isHidden())
                     .runtimeMs(elapsed)
@@ -218,14 +229,32 @@ public class CodeJudgeService {
             long elapsed = System.currentTimeMillis() - start;
             if (process != null) process.destroyForcibly();
             return ExecutionResultDto.TestCaseResult.builder()
-                    .input(tc.isHidden() ? "<hidden>" : tc.getInput())
-                    .expectedOutput(tc.isHidden() ? "<hidden>" : tc.getExpectedOutput())
+                    .input(tc.getInput())
+                    .expectedOutput(tc.getExpectedOutput())
                     .actualOutput("Runtime Error: " + e.getMessage())
                     .passed(false)
                     .hidden(tc.isHidden())
                     .runtimeMs(elapsed)
                     .build();
         }
+    }
+
+    /** Hides a hidden case's data. Timeout and crash messages stay, as they reveal nothing about the case. */
+    private ExecutionResultDto.TestCaseResult maskIfHidden(ExecutionResultDto.TestCaseResult result) {
+        if (!result.isHidden()) {
+            return result;
+        }
+        String actual = result.getActualOutput();
+        boolean isErrorMessage = actual != null
+                && (actual.startsWith("Time Limit Exceeded") || actual.startsWith("Runtime Error"));
+        return ExecutionResultDto.TestCaseResult.builder()
+                .input(HIDDEN_VALUE)
+                .expectedOutput(HIDDEN_VALUE)
+                .actualOutput(isErrorMessage ? actual : HIDDEN_VALUE)
+                .passed(result.isPassed())
+                .hidden(true)
+                .runtimeMs(result.getRuntimeMs())
+                .build();
     }
 
     private String getFileName(String language) {

@@ -40,6 +40,10 @@ public class CurriculumItem {
     @Indexed
     private String type; // CONTEST, ASSIGNMENT, QUIZ, ASSESSMENT
 
+    private String category; // EVALUATION, ASSIGNMENT, PROJECT, LECTURE
+    private String audience; // LINK for a shared test link
+    private String parentItemId; // Set when this item is a section of a test
+
     @Builder.Default
     private int order = 0;
 
