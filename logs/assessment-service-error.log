@@ -194,3 +194,14 @@ Using generated security password: 052805a5-51da-4f4b-a936-c8596699fc11
 This generated password is for development use only. Your security configuration must be updated before running your application in production.
 
 2026-10-30 12:20:16.146 WARN  [ForkJoinPool.commonPool-worker-1] [traceId=NO_TRACE] [userId=none] [ip=none] c.c.a.service.LmsIntegrationService: LMS webhook endpoint (http://localhost:3005/api/webhooks/assessment-event) offline or unreachable: java.net.ConnectException
+2026-11-10 11:59:44.575 WARN  [main] [traceId=NO_TRACE] [userId=none] [ip=none] o.s.b.a.s.s.UserDetailsServiceAutoConfiguration: 
+
+Using generated security password: b9272bc8-3a14-4165-8f40-8e8215534804
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-11-10 12:14:36.658 WARN  [ForkJoinPool.commonPool-worker-1] [traceId=NO_TRACE] [userId=none] [ip=none] c.c.a.service.LmsIntegrationService: LMS webhook endpoint (http://localhost:3005/api/webhooks/assessment-event) offline or unreachable: java.io.IOException: HTTP/1.1 header parser received no bytes
+2026-11-10 12:15:35.900 WARN  [ForkJoinPool.commonPool-worker-1] [traceId=NO_TRACE] [userId=none] [ip=none] c.c.a.service.LmsIntegrationService: LMS webhook endpoint (http://localhost:3005/api/webhooks/assessment-event) offline or unreachable: java.io.IOException: HTTP/1.1 header parser received no bytes
+2026-11-10 12:24:44.508 WARN  [ForkJoinPool.commonPool-worker-2] [traceId=NO_TRACE] [userId=none] [ip=none] c.c.a.service.LmsIntegrationService: LMS webhook endpoint (http://localhost:3005/api/webhooks/assessment-event) offline or unreachable: java.io.IOException: HTTP/1.1 header parser received no bytes
+2026-11-10 12:36:48.887 WARN  [ForkJoinPool.commonPool-worker-3] [traceId=NO_TRACE] [userId=none] [ip=none] c.c.a.service.LmsIntegrationService: LMS webhook endpoint (http://localhost:3005/api/webhooks/assessment-event) offline or unreachable: java.io.IOException: HTTP/1.1 header parser received no bytes
+2026-11-10 12:37:19.331 WARN  [ForkJoinPool.commonPool-worker-3] [traceId=NO_TRACE] [userId=none] [ip=none] c.c.a.service.LmsIntegrationService: LMS webhook endpoint (http://localhost:3005/api/webhooks/assessment-event) offline or unreachable: java.io.IOException: HTTP/1.1 header parser received no bytes

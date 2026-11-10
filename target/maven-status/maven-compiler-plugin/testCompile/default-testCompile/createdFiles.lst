@@ -1,6 +1,7 @@
 com/codingrank/assessment/common/exception/GlobalExceptionHandlerTest.class
 com/codingrank/assessment/service/QuizEvaluatorServiceTest.class
 com/codingrank/assessment/service/CodeJudgeServiceTest.class
+com/codingrank/assessment/service/LanguagePolicyServiceTest.class
 com/codingrank/assessment/AssessmentApplicationTests.class
 com/codingrank/assessment/config/MdcLoggingFilterTest.class
 com/codingrank/assessment/service/AuthServiceTest.class

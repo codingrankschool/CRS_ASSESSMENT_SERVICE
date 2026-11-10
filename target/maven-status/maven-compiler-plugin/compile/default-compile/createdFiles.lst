@@ -59,6 +59,7 @@ com/codingrank/assessment/dto/LoginRequest.class
 com/codingrank/assessment/repository/LeaderboardEntryRepository.class
 com/codingrank/assessment/dto/LeaderboardResponse$RankItem$RankItemBuilder.class
 com/codingrank/assessment/security/JwtAuthenticationFilter.class
+com/codingrank/assessment/service/LanguagePolicyService.class
 com/codingrank/assessment/security/JwtTokenProvider.class
 com/codingrank/assessment/service/CodeJudgeService.class
 com/codingrank/assessment/dto/ExecuteCodeRequest$TestCaseItem.class

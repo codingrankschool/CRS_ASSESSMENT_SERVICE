@@ -12,6 +12,7 @@
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/controller/AuthController.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/controller/CodingController.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/controller/ContestController.java
+/Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/controller/HealthController.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/controller/LeaderboardController.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/controller/LmsLaunchController.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/controller/SubmissionController.java
@@ -58,6 +59,8 @@
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/service/AuthService.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/service/CodeJudgeService.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/service/CodingService.java
+/Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/service/HiddenCaseRevealPolicy.java
+/Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/service/LanguagePolicyService.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/service/LeaderboardService.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/service/LmsIntegrationService.java
 /Users/mac/Documents/Product Development/Codingrank School/CRS_ASSESSMENT_SERVICE/src/main/java/com/codingrank/assessment/service/QuizEvaluatorService.java
