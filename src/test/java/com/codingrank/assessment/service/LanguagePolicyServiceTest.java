@@ -101,7 +101,7 @@ class LanguagePolicyServiceTest {
         itemAllows("javascript");
         CodeJudgeService judge = mock(CodeJudgeService.class);
         SubmissionService submissions = new SubmissionService(null, null, null, null, null, null, null, null,
-                null, judge, null, null, null, service, null);
+                null, judge, null, null, null, service, new JudgeProgressRegistry(), null);
 
         SubmitCodeRequest request = SubmitCodeRequest.builder()
                 .assessmentId("item").questionId("q").language("python").code("print(1)").build();
@@ -109,5 +109,6 @@ class LanguagePolicyServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> submissions.submitCode("user", null, null, request));
         verify(judge, never()).evaluate(any(), any(), any(), any());
+        verify(judge, never()).evaluate(any(), any(), any(), any(), any(), any());
     }
 }

@@ -5,6 +5,7 @@ import com.codingrank.assessment.dto.SubmitCodeRequest;
 import com.codingrank.assessment.dto.SubmitQuizRequest;
 import com.codingrank.assessment.model.CheatEvent;
 import com.codingrank.assessment.model.Submission;
+import com.codingrank.assessment.service.JudgeProgressRegistry;
 import com.codingrank.assessment.service.SubmissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.Map;
 public class SubmissionController {
 
     private final SubmissionService submissionService;
+    private final JudgeProgressRegistry judgeProgressRegistry;
 
     @PostMapping("/code")
     public ResponseEntity<ApiResponse<Submission>> submitCode(
@@ -35,6 +37,24 @@ public class SubmissionController {
 
         Submission submission = submissionService.submitCode(userId, headerUserEmail, headerUserName, request);
         return ResponseEntity.ok(ApiResponse.ok("Code evaluated successfully", submission));
+    }
+
+    /** How many test cases of a running code submission are done, e.g. { done: 7, total: 20 }. */
+    @GetMapping("/progress/{progressId}")
+    public ResponseEntity<ApiResponse<JudgeProgressRegistry.Progress>> progress(
+            Authentication authentication,
+            @RequestHeader(value = "X-User-Id", required = false) String headerUserId,
+            @PathVariable String progressId
+    ) {
+        String userId = (authentication != null && authentication.getName() != null)
+                ? authentication.getName()
+                : headerUserId;
+        if (!JudgeProgressRegistry.isValidId(progressId)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid progress id"));
+        }
+        return judgeProgressRegistry.read(progressId, userId)
+                .map(p -> ResponseEntity.ok(ApiResponse.ok("Progress", p)))
+                .orElseGet(() -> ResponseEntity.ok(ApiResponse.ok("Not started", new JudgeProgressRegistry.Progress(0, 0, "queued"))));
     }
 
     @PostMapping("/quiz")

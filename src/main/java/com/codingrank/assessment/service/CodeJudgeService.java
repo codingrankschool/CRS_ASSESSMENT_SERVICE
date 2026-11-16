@@ -48,6 +48,17 @@ public class CodeJudgeService {
      * Executes user code against a suite of test cases.
      */
     public ExecutionResultDto evaluate(Question question, List<TestCase> testCases, String code, String language) {
+        return evaluate(question, testCases, code, language, null, null);
+    }
+
+    /**
+     * Same as above, and tells the caller as it goes: the phase ("compiling", "running") and each
+     * finished test case, so the page can show "7 / 20" while the student waits.
+     */
+    public ExecutionResultDto evaluate(Question question, List<TestCase> testCases, String code, String language,
+                                       java.util.function.Consumer<String> onPhase, Runnable onCaseDone) {
+        final java.util.function.Consumer<String> phase = onPhase != null ? onPhase : p -> { };
+        final Runnable caseDone = onCaseDone != null ? onCaseDone : () -> { };
         List<ExecutionResultDto.TestCaseResult> results = new ArrayList<>();
 
         if (testCases == null || testCases.isEmpty()) {
@@ -77,6 +88,7 @@ public class CodeJudgeService {
             // Compile if necessary
             String compileCommand = getCompileCommand(language, sourceFile);
             if (compileCommand != null) {
+                phase.accept("compiling");
                 log.debug("Compiling code with command: '{}' in workDir: '{}'", compileCommand, workDir);
                 List<String> fullCompileCmd = buildExecutionCommand(workDir, language, true, compileCommand);
                 Process compileProcess = new ProcessBuilder(fullCompileCmd)
@@ -108,8 +120,11 @@ public class CodeJudgeService {
 
             List<CompletableFuture<ExecutionResultDto.TestCaseResult>> futures = new ArrayList<>(testCases.size());
             final Path finalWorkDir = workDir;
+            phase.accept("running");
             for (TestCase tc : testCases) {
-                futures.add(CompletableFuture.supplyAsync(() -> runSingleTestCase(finalWorkDir, language, tc), testCaseExecutor));
+                futures.add(CompletableFuture
+                        .supplyAsync(() -> runSingleTestCase(finalWorkDir, language, tc), testCaseExecutor)
+                        .whenComplete((r, e) -> caseDone.run()));
             }
 
             for (CompletableFuture<ExecutionResultDto.TestCaseResult> future : futures) {
