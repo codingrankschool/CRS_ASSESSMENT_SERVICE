@@ -38,6 +38,7 @@ public class SubmissionService {
     private final LmsIntegrationService lmsIntegrationService;
     private final QuizEvaluatorService quizEvaluatorService;
     private final LanguagePolicyService languagePolicyService;
+    private final JudgeProgressRegistry judgeProgressRegistry;
     private final MongoTemplate mongoTemplate;
 
     public Submission submitCode(String userId, String userEmail, String userName, SubmitCodeRequest request) {
@@ -72,14 +73,23 @@ public class SubmissionService {
                     "EXCESSIVE_WARNINGS", Map.of("warningsCount", request.getWarningsCount()));
         }
 
-        // Run evaluation through sandboxed judge
-        ExecutionResultDto evalResult = isDisqualified
-                ? ExecutionResultDto.builder()
-                    .status(SubmissionStatus.DISQUALIFIED)
-                    .score(0)
-                    .compilerOutput("Disqualified due to anti-cheat violation")
-                    .build()
-                : codeJudgeService.evaluate(question, testCases, request.getCode(), request.getLanguage());
+        // Run evaluation through sandboxed judge, counting finished cases for the page's progress bar.
+        final String progressId = request.getProgressId();
+        judgeProgressRegistry.start(progressId, userId, testCases.size());
+        ExecutionResultDto evalResult;
+        try {
+            evalResult = isDisqualified
+                    ? ExecutionResultDto.builder()
+                        .status(SubmissionStatus.DISQUALIFIED)
+                        .score(0)
+                        .compilerOutput("Disqualified due to anti-cheat violation")
+                        .build()
+                    : codeJudgeService.evaluate(question, testCases, request.getCode(), request.getLanguage(),
+                        p -> judgeProgressRegistry.phase(progressId, p),
+                        () -> judgeProgressRegistry.caseDone(progressId));
+        } finally {
+            judgeProgressRegistry.finish(progressId);
+        }
 
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("warningsCount", request.getWarningsCount());

@@ -31,4 +31,7 @@ public class SubmitCodeRequest {
 
     @Builder.Default
     private boolean proctoredDisqualified = false;
+
+    /** Optional id chosen by the page, so it can ask "how many test cases are done?" while this runs. */
+    private String progressId;
 }
